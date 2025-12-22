@@ -3,9 +3,29 @@ from sqlalchemy.orm import Session
 from typing import List
 from database import get_db
 from models import Garage
-from schemas import Garage as GarageSchema, GarageUpdate
+from schemas import Garage as GarageSchema, GarageCreate, GarageUpdate
 
 router = APIRouter(prefix="/garages", tags=["garages"])
+
+
+@router.post("/", response_model=GarageSchema, status_code=201)
+def create_garage(garage_data: GarageCreate, db: Session = Depends(get_db)):
+    """Crée un nouveau garage"""
+    new_garage = Garage(
+        nom_garage=garage_data.nom_garage,
+        adresse=garage_data.adresse,
+        ville=garage_data.ville,
+        code_postal=garage_data.code_postal,
+        telephone=garage_data.telephone,
+        email=garage_data.email,
+        siret=garage_data.siret,
+        specialites=garage_data.specialites,
+        statut=garage_data.statut or "en_attente"
+    )
+    db.add(new_garage)
+    db.commit()
+    db.refresh(new_garage)
+    return new_garage
 
 
 @router.get("/", response_model=List[GarageSchema])

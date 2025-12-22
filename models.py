@@ -110,6 +110,7 @@ class Vehicule(Base):
     kilometrage = Column(Integer, default=0)
     carburant = Column(Enum(CarburantEnum), default=CarburantEnum.essence)
     couleur = Column(String(30), nullable=True)
+    photo_url = Column(Text, nullable=True)
     created_at = Column(DateTime, server_default=func.now())
     
     # Relations

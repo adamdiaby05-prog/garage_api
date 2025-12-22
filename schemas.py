@@ -82,6 +82,7 @@ class VehiculeBase(BaseModel):
     kilometrage: Optional[int] = 0
     carburant: Optional[str] = "essence"
     couleur: Optional[str] = Field(None, max_length=30)
+    photo_url: Optional[str] = None
 
 
 class VehiculeCreate(VehiculeBase):
@@ -97,6 +98,7 @@ class VehiculeUpdate(BaseModel):
     kilometrage: Optional[int] = None
     carburant: Optional[str] = None
     couleur: Optional[str] = Field(None, max_length=30)
+    photo_url: Optional[str] = None
 
 
 class Vehicule(VehiculeBase):

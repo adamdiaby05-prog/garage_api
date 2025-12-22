@@ -9,6 +9,8 @@ import bcrypt
 from typing import Optional
 from database import get_db
 from models_auth import Utilisateur, RoleEnum
+from models import Client
+from sqlalchemy import or_
 
 router = APIRouter(prefix="/auth", tags=["authentication"])
 
@@ -174,6 +176,30 @@ def register(user_data: UserRegister, db: Session = Depends(get_db)):
     db.commit()
     db.refresh(new_user)
     
+    # Si l'utilisateur est un client, créer automatiquement un enregistrement dans la table clients
+    client_id = None
+    if new_user.role == RoleEnum.client:
+        # Vérifier si un client avec cet email existe déjà
+        existing_client = db.query(Client).filter(Client.email == new_user.email).first()
+        if existing_client:
+            client_id = existing_client.id
+        else:
+            # Créer un nouveau client
+            nom_parts = new_user.nom_complet.split(" ", 1)
+            nom = nom_parts[0]
+            prenom = nom_parts[1] if len(nom_parts) > 1 else None
+            
+            new_client = Client(
+                nom=nom,
+                prenom=prenom,
+                email=new_user.email,
+                telephone=new_user.telephone or "0000000000"  # Téléphone obligatoire dans Client
+            )
+            db.add(new_client)
+            db.commit()
+            db.refresh(new_client)
+            client_id = new_client.id
+    
     # Créer un token
     access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
     access_token = create_access_token(
@@ -282,6 +308,112 @@ def login(login_data: UserLogin, db: Session = Depends(get_db)):
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=detail
         )
+
+
+@router.get("/client-id")
+def get_client_id_from_user(token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)):
+    """Récupère ou crée le client_id associé à l'utilisateur connecté"""
+    try:
+        # Décoder le token pour obtenir l'ID de l'utilisateur
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        user_id = int(payload.get("sub"))
+        user_email = payload.get("email")
+        user_role = payload.get("role")
+        
+        # Vérifier que l'utilisateur est un client
+        if user_role != "client":
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Cette fonctionnalité est réservée aux clients"
+            )
+        
+        # Récupérer l'utilisateur
+        user = db.query(Utilisateur).filter(Utilisateur.id == user_id).first()
+        if not user:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Utilisateur non trouvé"
+            )
+        
+        # Chercher le client par email
+        client = db.query(Client).filter(Client.email == user.email).first()
+        
+        if not client:
+            # Créer le client s'il n'existe pas
+            nom_parts = user.nom_complet.split(" ", 1)
+            nom = nom_parts[0]
+            prenom = nom_parts[1] if len(nom_parts) > 1 else None
+            
+            new_client = Client(
+                nom=nom,
+                prenom=prenom,
+                email=user.email,
+                telephone=user.telephone or "0000000000"
+            )
+            db.add(new_client)
+            db.commit()
+            db.refresh(new_client)
+            return {"client_id": new_client.id}
+        
+        return {"client_id": client.id}
+    except JWTError:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Token invalide"
+        )
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Erreur: {str(e)}"
+        )
+
+
+@router.put("/update-garage-id", response_model=UserResponse)
+def update_user_garage_id(
+    garage_id: int,
+    token: str = Depends(oauth2_scheme),
+    db: Session = Depends(get_db)
+):
+    """Met à jour le garage_id de l'utilisateur connecté"""
+    credentials_exception = HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail="Impossible de valider les identifiants"
+    )
+    
+    try:
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        user_id: str = payload.get("sub")
+        if user_id is None:
+            raise credentials_exception
+    except JWTError:
+        raise credentials_exception
+    
+    user = db.query(Utilisateur).filter(Utilisateur.id == int(user_id)).first()
+    if user is None:
+        raise credentials_exception
+    
+    # Vérifier que le garage existe
+    from models import Garage
+    garage = db.query(Garage).filter(Garage.id == garage_id).first()
+    if garage is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Garage non trouvé"
+        )
+    
+    # Mettre à jour le garage_id de l'utilisateur
+    user.garage_id = garage_id
+    db.commit()
+    db.refresh(user)
+    
+    return UserResponse(
+        id=user.id,
+        nom_complet=user.nom_complet,
+        email=user.email,
+        role=user.role.value,
+        telephone=user.telephone,
+        garage_id=user.garage_id
+    )
 
 
 @router.get("/me", response_model=UserResponse)
