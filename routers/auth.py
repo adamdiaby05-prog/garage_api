@@ -503,25 +503,30 @@ def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(
     from models import Garage
     garage = db.query(Garage).filter(Garage.email == user.email).first()
     
+    # Normaliser le rôle
+    role_str = str(user.role) if user.role else 'client'
+    
     if garage:
         # Un garage existe avec cet email, l'utilisateur DOIT être un garage
-        if user.role != RoleEnum.garage or user.garage_id != garage.id:
-            user.role = RoleEnum.garage
+        if role_str != 'garage' or user.garage_id != garage.id:
+            user.role = 'garage'
             user.garage_id = garage.id
             db.commit()
             db.refresh(user)
+            role_str = 'garage'
     else:
         # Cohérence rôle/garage_id
-        if user.garage_id and user.role != RoleEnum.garage:
-            user.role = RoleEnum.garage
+        if user.garage_id and role_str != 'garage':
+            user.role = 'garage'
             db.commit()
             db.refresh(user)
+            role_str = 'garage'
     
     return UserResponse(
         id=user.id,
-        nom_complet=user.nom_complet,
+        nom_complet=get_user_full_name(user),
         email=user.email,
-        role=str(user.role),
+        role=role_str,
         telephone=user.telephone,
         garage_id=user.garage_id
     )
