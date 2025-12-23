@@ -30,7 +30,8 @@ def get_demandes_prestations(
 ):
     """Récupère toutes les demandes de prestations avec les informations des clients, véhicules et services"""
     try:
-        query = text("""
+        # Construire la requête SQL avec les conditions
+        base_query = """
             SELECT 
                 dp.id,
                 dp.client_id,
@@ -62,7 +63,7 @@ def get_demandes_prestations(
             LEFT JOIN services s ON dp.service_id = s.id
             LEFT JOIN garages g ON dp.garage_id = g.id
             WHERE 1=1
-        """)
+        """
         
         params = {}
         conditions = []
@@ -80,15 +81,13 @@ def get_demandes_prestations(
             params['client_id'] = client_id
         
         if conditions:
-            query_str = str(query) + " AND " + " AND ".join(conditions)
-        else:
-            query_str = str(query)
+            base_query += " AND " + " AND ".join(conditions)
         
-        query_str += " ORDER BY dp.created_at DESC LIMIT :limit OFFSET :skip"
+        base_query += " ORDER BY dp.created_at DESC LIMIT :limit OFFSET :skip"
         params['limit'] = limit
         params['skip'] = skip
         
-        result = db.execute(text(query_str), params)
+        result = db.execute(text(base_query), params)
         rows = result.fetchall()
         
         # Construire les dictionnaires avec toutes les informations
