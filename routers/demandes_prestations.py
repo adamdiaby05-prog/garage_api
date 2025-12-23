@@ -96,8 +96,15 @@ def get_demandes_prestations(
         print(f"✅ {len(rows)} demandes de prestations trouvées dans la base de données")
         
         # Construire les dictionnaires avec toutes les informations
+        # Utiliser un set pour éviter les doublons basés sur l'ID
+        seen_ids = set()
         demandes = []
         for row in rows:
+            demande_id = row[0]
+            if demande_id in seen_ids:
+                print(f"⚠️ Doublon détecté pour la demande ID: {demande_id}")
+                continue
+            seen_ids.add(demande_id)
             demande_data = {
                 "id": row[0],
                 "client_id": row[1],
