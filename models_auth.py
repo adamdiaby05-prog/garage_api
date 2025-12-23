@@ -9,6 +9,10 @@ class RoleEnum(str, enum.Enum):
     client = "client"
     garage = "garage"
     admin = "admin"
+    gerant = "gerant"
+    mecanicien = "mecanicien"
+    vendeur = "vendeur"
+    secretaire = "secretaire"
 
 
 class Utilisateur(Base):
@@ -29,7 +33,8 @@ class Utilisateur(Base):
     # Utiliser uniquement mot_de_passe (nom réel dans la base)
     mot_de_passe = Column(String(255), nullable=True)  # Nom réel dans la base
     # NE PAS définir password_hash comme colonne - utiliser uniquement mot_de_passe
-    role = Column(Enum(RoleEnum), default=RoleEnum.client)
+    # Utiliser String pour le rôle car la base peut avoir d'autres valeurs (gerant, mecanicien, etc.)
+    role = Column(String(50), nullable=True, default='client')
     telephone = Column(String(30), nullable=True)
     garage_id = Column(Integer, nullable=True)
     created_at = Column(String(50), server_default=func.now())

@@ -194,7 +194,7 @@ def register(user_data: UserRegister, db: Session = Depends(get_db)):
     new_user = Utilisateur(
         email=user_data.email,
         mot_de_passe=hashed_password,  # Utiliser mot_de_passe (nom réel dans la base)
-        role=RoleEnum(user_data.role),
+        role=user_data.role,  # Utiliser directement le string
         telephone=user_data.telephone,
         nom=nom,
         prenom=prenom
@@ -231,7 +231,7 @@ def register(user_data: UserRegister, db: Session = Depends(get_db)):
     # Créer un token
     access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
     access_token = create_access_token(
-        data={"sub": str(new_user.id), "email": new_user.email, "role": new_user.role.value},
+        data={"sub": str(new_user.id), "email": new_user.email, "role": str(new_user.role)},
         expires_delta=access_token_expires
     )
     
@@ -239,7 +239,7 @@ def register(user_data: UserRegister, db: Session = Depends(get_db)):
         id=new_user.id,
         nom_complet=get_user_full_name(new_user),
         email=new_user.email,
-        role=new_user.role.value,
+        role=str(new_user.role),
         telephone=new_user.telephone,
         garage_id=new_user.garage_id,
         token=access_token
@@ -299,6 +299,9 @@ def login(login_data: UserLogin, db: Session = Depends(get_db)):
                 detail="Rôle utilisateur non défini"
             )
         
+        # Normaliser le rôle (convertir en string)
+        role_str = str(user.role) if user.role else 'client'
+        
         # IMPORTANT: Vérifier d'abord si un garage existe avec cet email
         # Si oui, l'utilisateur DOIT être un garage, peu importe son rôle dans la base
         from models import Garage
@@ -306,32 +309,34 @@ def login(login_data: UserLogin, db: Session = Depends(get_db)):
         
         if garage:
             # Un garage existe avec cet email, l'utilisateur DOIT être un garage
-            if user.role != RoleEnum.garage or user.garage_id != garage.id:
+            if role_str != 'garage' or user.garage_id != garage.id:
                 print(f"⚠️  Garage trouvé pour {user.email} (ID: {garage.id})")
-                print(f"   Correction: rôle={user.role.value} → 'garage', garage_id={user.garage_id} → {garage.id}")
-                user.role = RoleEnum.garage
+                print(f"   Correction: rôle={role_str} → 'garage', garage_id={user.garage_id} → {garage.id}")
+                user.role = 'garage'
                 user.garage_id = garage.id
                 db.commit()
                 db.refresh(user)
+                role_str = 'garage'
         else:
             # Pas de garage avec cet email
             # Cohérence rôle/garage_id : si l'utilisateur a un garage_id, son rôle doit être "garage"
-            if user.garage_id and user.role != RoleEnum.garage:
-                print(f"⚠️  Incohérence détectée: utilisateur {user.email} a garage_id={user.garage_id} mais rôle={user.role.value}")
+            if user.garage_id and role_str != 'garage':
+                print(f"⚠️  Incohérence détectée: utilisateur {user.email} a garage_id={user.garage_id} mais rôle={role_str}")
                 print(f"   Correction automatique: rôle changé en 'garage'")
-                user.role = RoleEnum.garage
+                user.role = 'garage'
                 db.commit()
                 db.refresh(user)
+                role_str = 'garage'
             
             # Si l'utilisateur est un garage mais n'a pas de garage_id, c'est une incohérence
-            if user.role == RoleEnum.garage and not user.garage_id:
+            if role_str == 'garage' and not user.garage_id:
                 print(f"⚠️  ATTENTION: Utilisateur {user.email} a le rôle 'garage' mais pas de garage_id et aucun garage trouvé avec cet email")
                 print(f"   Le rôle sera retourné tel quel, mais l'utilisateur n'a pas de garage associé")
         
         # Créer un token
         access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
         access_token = create_access_token(
-            data={"sub": str(user.id), "email": user.email, "role": user.role.value},
+            data={"sub": str(user.id), "email": user.email, "role": role_str},
             expires_delta=access_token_expires
         )
         
@@ -339,7 +344,7 @@ def login(login_data: UserLogin, db: Session = Depends(get_db)):
             id=user.id,
             nom_complet=get_user_full_name(user),
             email=user.email,
-            role=user.role.value,
+            role=role_str,
             telephone=user.telephone,
             garage_id=user.garage_id,
             token=access_token
@@ -468,7 +473,7 @@ def update_user_garage_id(
         id=user.id,
         nom_complet=get_user_full_name(user),
         email=user.email,
-        role=user.role.value,
+        role=str(user.role),
         telephone=user.telephone,
         garage_id=user.garage_id
     )
@@ -516,7 +521,7 @@ def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(
         id=user.id,
         nom_complet=user.nom_complet,
         email=user.email,
-        role=user.role.value,
+        role=str(user.role),
         telephone=user.telephone,
         garage_id=user.garage_id
     )
