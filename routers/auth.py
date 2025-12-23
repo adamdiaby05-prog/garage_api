@@ -135,21 +135,37 @@ def create_access_token(data: dict, expires_delta: Optional[timedelta] = None):
 def get_user_by_email(db: Session, email: str):
     """Récupère un utilisateur par email (le plus récent en cas de doublons)"""
     try:
-        # Récupérer tous les utilisateurs avec cet email (en cas de doublons)
-        users = db.query(Utilisateur).filter(Utilisateur.email == email).order_by(Utilisateur.id.desc()).all()
+        # Utiliser une requête SQL brute pour charger uniquement les colonnes qui existent
+        from sqlalchemy import text
+        result = db.execute(
+            text("""
+                SELECT id, nom, prenom, email, mot_de_passe, role, telephone, garage_id, created_at
+                FROM utilisateurs 
+                WHERE email = :email 
+                ORDER BY id DESC 
+                LIMIT 1
+            """),
+            {"email": email}
+        )
+        row = result.fetchone()
         
-        if not users:
+        if not row:
             return None
         
-        # Si plusieurs utilisateurs avec le même email, utiliser le plus récent (ID le plus élevé)
-        if len(users) > 1:
-            print(f"⚠️  ATTENTION: {len(users)} utilisateurs trouvés avec l'email '{email}'. Utilisation du plus récent (ID: {users[0].id})")
-            # Optionnel: vous pouvez supprimer les anciens doublons ici
-            # for old_user in users[1:]:
-            #     db.delete(old_user)
-            # db.commit()
+        # Construire l'objet Utilisateur depuis la ligne
+        user = Utilisateur(
+            id=row[0],
+            nom=row[1],
+            prenom=row[2],
+            email=row[3],
+            mot_de_passe=row[4],
+            role=row[5] or 'client',  # Valeur par défaut si NULL
+            telephone=row[6],
+            garage_id=row[7],
+            created_at=str(row[8]) if row[8] else None
+        )
         
-        return users[0]
+        return user
     except Exception as e:
         error_str = str(e)
         print(f"Erreur lors de la récupération de l'utilisateur: {error_str}")
