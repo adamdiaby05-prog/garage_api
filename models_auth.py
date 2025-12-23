@@ -18,8 +18,8 @@ class Utilisateur(Base):
     # Structure réelle de la base de données (comme dans garage-frontend)
     nom = Column(String(100), nullable=True)
     prenom = Column(String(100), nullable=True)
-    # Support optionnel de nom_complet si la colonne existe
-    nom_complet = Column(String(200), nullable=True)
+    # NE PAS définir nom_complet comme colonne - elle n'existe pas dans la base
+    # On la construira uniquement via la propriété full_name
     email = Column(String(150), nullable=False, unique=True, index=True)
     # Support des deux noms de colonnes pour le mot de passe
     mot_de_passe = Column(String(255), nullable=True)  # Nom réel dans la base
@@ -30,13 +30,19 @@ class Utilisateur(Base):
     created_at = Column(String(50), server_default=func.now())
     
     @property
+    def nom_complet(self):
+        """Construit le nom complet depuis nom+prenom (propriété calculée, pas une colonne)"""
+        nom_parts = []
+        if self.prenom:
+            nom_parts.append(self.prenom)
+        if self.nom:
+            nom_parts.append(self.nom)
+        return ' '.join(nom_parts) if nom_parts else (self.email or '')
+    
+    @property
     def full_name(self):
-        """Retourne le nom complet depuis nom_complet ou nom+prenom"""
-        if self.nom_complet:
-            return self.nom_complet
-        elif self.nom or self.prenom:
-            return f"{self.prenom or ''} {self.nom or ''}".strip()
-        return self.email or ''
+        """Alias pour nom_complet"""
+        return self.nom_complet
     
     @property
     def password(self):
