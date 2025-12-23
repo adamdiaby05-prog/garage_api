@@ -167,7 +167,9 @@ def get_vehicules_by_garage(
 ):
     """Récupère les véhicules d'un garage basés sur les demandes acceptées/en cours (pas terminées)"""
     try:
-        # Récupérer les véhicules associés aux demandes acceptées/en cours du garage
+        # Récupérer les véhicules associés aux demandes du garage (tous statuts sauf terminées)
+        # Un véhicule apparaît dès qu'une demande lui est assignée (même en attente)
+        # et disparaît quand toutes les demandes sont terminées
         query = text("""
             SELECT DISTINCT 
                 v.id, 
@@ -188,7 +190,7 @@ def get_vehicules_by_garage(
             INNER JOIN demandes_prestations dp ON v.id = dp.vehicule_id
             INNER JOIN clients c ON v.client_id = c.id
             WHERE dp.garage_id = :garage_id
-            AND dp.statut IN ('acceptee', 'en_cours')
+            AND dp.statut != 'terminee'
             ORDER BY dp.date_demande DESC
         """)
         
