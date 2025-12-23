@@ -190,10 +190,10 @@ def register(user_data: UserRegister, db: Session = Depends(get_db)):
     prenom = nom_parts[1] if len(nom_parts) > 1 else None
     
     # Créer l'utilisateur avec la structure réelle de la base (nom/prenom)
+    # Créer l'utilisateur avec la structure réelle de la base (nom/prenom, mot_de_passe)
     new_user = Utilisateur(
         email=user_data.email,
-        password_hash=hashed_password,
-        mot_de_passe=hashed_password,  # Pour compatibilité avec l'ancienne structure
+        mot_de_passe=hashed_password,  # Utiliser mot_de_passe (nom réel dans la base)
         role=RoleEnum(user_data.role),
         telephone=user_data.telephone,
         nom=nom,
@@ -258,8 +258,8 @@ def login(login_data: UserLogin, db: Session = Depends(get_db)):
                 detail="Email ou mot de passe incorrect"
             )
         
-        # Vérifier le mot de passe (support des deux noms de colonnes)
-        password_hash = user.password_hash or getattr(user, 'mot_de_passe', None)
+        # Vérifier le mot de passe (utiliser mot_de_passe directement)
+        password_hash = user.mot_de_passe
         if not password_hash:
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,

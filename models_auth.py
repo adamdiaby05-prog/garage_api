@@ -14,6 +14,11 @@ class RoleEnum(str, enum.Enum):
 class Utilisateur(Base):
     __tablename__ = "utilisateurs"
     
+    # Utiliser __mapper_args__ pour mapper uniquement les colonnes qui existent
+    __mapper_args__ = {
+        'exclude_properties': ['nom_complet', 'password_hash']  # Colonnes qui n'existent pas
+    }
+    
     id = Column(Integer, primary_key=True, index=True)
     # Structure réelle de la base de données (comme dans garage-frontend)
     nom = Column(String(100), nullable=True)
@@ -21,9 +26,9 @@ class Utilisateur(Base):
     # NE PAS définir nom_complet comme colonne - elle n'existe pas dans la base
     # On la construira uniquement via la propriété full_name
     email = Column(String(150), nullable=False, unique=True, index=True)
-    # Support des deux noms de colonnes pour le mot de passe
+    # Utiliser uniquement mot_de_passe (nom réel dans la base)
     mot_de_passe = Column(String(255), nullable=True)  # Nom réel dans la base
-    password_hash = Column(String(255), nullable=True)  # Alias pour compatibilité
+    # NE PAS définir password_hash comme colonne - utiliser uniquement mot_de_passe
     role = Column(Enum(RoleEnum), default=RoleEnum.client)
     telephone = Column(String(30), nullable=True)
     garage_id = Column(Integer, nullable=True)
@@ -46,8 +51,13 @@ class Utilisateur(Base):
     
     @property
     def password(self):
-        """Retourne le mot de passe depuis password_hash ou mot_de_passe"""
-        return self.password_hash or self.mot_de_passe
+        """Retourne le mot de passe depuis mot_de_passe"""
+        return self.mot_de_passe
+    
+    @property
+    def password_hash(self):
+        """Alias pour mot_de_passe (pour compatibilité avec le code existant)"""
+        return self.mot_de_passe
     
     # Relations possibles
     # clients = relationship("Client", back_populates="utilisateur")
