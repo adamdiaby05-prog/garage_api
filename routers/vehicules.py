@@ -18,22 +18,62 @@ def get_vehicules(
     db: Session = Depends(get_db)
 ):
     """Récupère la liste des véhicules avec pagination et filtres"""
-    query = db.query(Vehicule)
-    
-    if client_id:
-        query = query.filter(Vehicule.client_id == client_id)
-    
-    if search:
-        query = query.filter(
-            or_(
-                Vehicule.marque.ilike(f"%{search}%"),
-                Vehicule.modele.ilike(f"%{search}%"),
-                Vehicule.immatriculation.ilike(f"%{search}%")
+    try:
+        # Utiliser une requête SQL brute pour charger uniquement les colonnes qui existent
+        from sqlalchemy import text
+        
+        base_query = """
+            SELECT id, client_id, marque, modele, immatriculation, annee, kilometrage, carburant, couleur, created_at
+            FROM vehicules
+        """
+        conditions = []
+        params = {}
+        
+        if client_id:
+            conditions.append("client_id = :client_id")
+            params['client_id'] = client_id
+        
+        if search:
+            conditions.append("(marque LIKE :search OR modele LIKE :search OR immatriculation LIKE :search)")
+            params['search'] = f"%{search}%"
+        
+        if conditions:
+            base_query += " WHERE " + " AND ".join(conditions)
+        
+        base_query += " LIMIT :limit OFFSET :skip"
+        params['limit'] = limit
+        params['skip'] = skip
+        
+        result = db.execute(text(base_query), params)
+        rows = result.fetchall()
+        
+        # Construire les objets Vehicule depuis les lignes
+        vehicules = []
+        for row in rows:
+            vehicule = Vehicule(
+                id=row[0],
+                client_id=row[1],
+                marque=row[2],
+                modele=row[3],
+                immatriculation=row[4],
+                annee=row[5] if row[5] else None,
+                kilometrage=row[6] if row[6] else 0,
+                carburant=str(row[7]) if row[7] else 'essence',
+                couleur=row[8] if row[8] else None,
+                created_at=row[9] if row[9] else None
             )
+            vehicules.append(vehicule)
+        
+        return vehicules
+    except Exception as e:
+        import traceback
+        error_str = str(e)
+        print(f"Erreur lors de la récupération des véhicules: {error_str}")
+        traceback.print_exc()
+        raise HTTPException(
+            status_code=500,
+            detail=f"Erreur lors de la récupération des véhicules: {error_str}"
         )
-    
-    vehicules = query.offset(skip).limit(limit).all()
-    return vehicules
 
 
 @router.get("/{vehicule_id}", response_model=VehiculeSchema)

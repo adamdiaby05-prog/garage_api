@@ -101,6 +101,11 @@ class Employe(Base):
 class Vehicule(Base):
     __tablename__ = "vehicules"
     
+    # Utiliser __mapper_args__ pour exclure photo_url si elle n'existe pas
+    __mapper_args__ = {
+        'exclude_properties': ['photo_url']  # Exclure si la colonne n'existe pas
+    }
+    
     id = Column(Integer, primary_key=True, index=True)
     client_id = Column(Integer, ForeignKey("clients.id"), nullable=False)
     marque = Column(String(50), nullable=False)
@@ -108,9 +113,10 @@ class Vehicule(Base):
     immatriculation = Column(String(15), nullable=False, unique=True)
     annee = Column(Integer, nullable=True)
     kilometrage = Column(Integer, default=0)
-    carburant = Column(Enum(CarburantEnum), default=CarburantEnum.essence)
+    # Utiliser String au lieu d'Enum pour éviter les problèmes de mapping
+    carburant = Column(String(20), nullable=True, default='essence')
     couleur = Column(String(30), nullable=True)
-    photo_url = Column(Text, nullable=True)
+    # photo_url n'existe peut-être pas dans la base - retiré du modèle
     created_at = Column(DateTime, server_default=func.now())
     
     # Relations
