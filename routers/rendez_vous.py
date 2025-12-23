@@ -93,7 +93,9 @@ def create_rendez_vous(rendez_vous: RendezVousCreate, db: Session = Depends(get_
         if not service:
             raise HTTPException(status_code=404, detail="Service non trouvé")
     
-    db_rendez_vous = RendezVous(**rendez_vous.dict())
+    # Retirer garage_id du dict car il n'existe pas dans la table
+    rendez_vous_data = rendez_vous.dict(exclude={'garage_id'})
+    db_rendez_vous = RendezVous(**rendez_vous_data)
     db.add(db_rendez_vous)
     db.commit()
     db.refresh(db_rendez_vous)
