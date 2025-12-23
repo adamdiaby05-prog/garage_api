@@ -1,9 +1,20 @@
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Body
 from sqlalchemy.orm import Session
 from sqlalchemy import text
 from typing import List, Optional
+from pydantic import BaseModel
 from database import get_db
 from models import DemandePrestation, Client, Vehicule, Service, Garage
+
+
+class AcceptDemandeRequest(BaseModel):
+    garage_id: int
+    prix_estime: Optional[float] = None
+    duree_estimee: Optional[int] = None
+
+
+class UpdateStatutRequest(BaseModel):
+    statut: str
 
 router = APIRouter(prefix="/prestations/demandes", tags=["demandes-prestations"])
 
@@ -215,9 +226,7 @@ def get_demande_prestation(demande_id: int, db: Session = Depends(get_db)):
 @router.patch("/{demande_id}/accept")
 def accept_demande_prestation(
     demande_id: int,
-    garage_id: int = Query(...),
-    prix_estime: Optional[float] = Query(None),
-    duree_estimee: Optional[int] = Query(None),
+    accept_data: AcceptDemandeRequest = Body(...),
     db: Session = Depends(get_db)
 ):
     """Accepte une demande de prestation et l'assigne à un garage"""
@@ -228,17 +237,17 @@ def accept_demande_prestation(
             raise HTTPException(status_code=404, detail="Demande de prestation non trouvée")
         
         # Vérifier que le garage existe
-        garage = db.query(Garage).filter(Garage.id == garage_id).first()
+        garage = db.query(Garage).filter(Garage.id == accept_data.garage_id).first()
         if not garage:
             raise HTTPException(status_code=404, detail="Garage non trouvé")
         
         # Mettre à jour la demande
-        demande.garage_id = garage_id
+        demande.garage_id = accept_data.garage_id
         demande.statut = 'acceptee'
-        if prix_estime is not None:
-            demande.prix_estime = prix_estime
-        if duree_estimee is not None:
-            demande.duree_estimee = duree_estimee
+        if accept_data.prix_estime is not None:
+            demande.prix_estime = accept_data.prix_estime
+        if accept_data.duree_estimee is not None:
+            demande.duree_estimee = accept_data.duree_estimee
         
         db.commit()
         db.refresh(demande)
@@ -267,7 +276,7 @@ def accept_demande_prestation(
 @router.patch("/{demande_id}/statut")
 def update_statut_demande(
     demande_id: int,
-    statut: str = Query(...),
+    update_data: UpdateStatutRequest = Body(...),
     db: Session = Depends(get_db)
 ):
     """Met à jour le statut d'une demande de prestation"""
@@ -278,13 +287,13 @@ def update_statut_demande(
         
         # Valider le statut
         statuts_valides = ['en_attente', 'acceptee', 'en_cours', 'terminee', 'annulee']
-        if statut not in statuts_valides:
+        if update_data.statut not in statuts_valides:
             raise HTTPException(
                 status_code=400,
                 detail=f"Statut invalide. Statuts valides: {', '.join(statuts_valides)}"
             )
         
-        demande.statut = statut
+        demande.statut = update_data.statut
         db.commit()
         db.refresh(demande)
         
