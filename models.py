@@ -223,7 +223,7 @@ class RendezVous(Base):
     vehicule_id = Column(Integer, ForeignKey("vehicules.id"), nullable=False)
     employe_id = Column(Integer, ForeignKey("employes.id"), nullable=True)
     service_id = Column(Integer, ForeignKey("services.id"), nullable=True)
-    garage_id = Column(Integer, ForeignKey("garages.id"), nullable=True)
+    # garage_id n'existe pas dans la base de données réelle - retiré
     date_rdv = Column(DateTime, nullable=False)
     motif = Column(Text, nullable=True)
     statut = Column(Enum(StatutRendezVousEnum), default=StatutRendezVousEnum.programme)
@@ -236,7 +236,6 @@ class RendezVous(Base):
     vehicule = relationship("Vehicule", back_populates="rendez_vous")
     employe = relationship("Employe", back_populates="rendez_vous")
     service = relationship("Service", back_populates="rendez_vous")
-    garage = relationship("Garage")
 
 
 class Garage(Base):

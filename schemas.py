@@ -280,7 +280,7 @@ class RendezVousBase(BaseModel):
     vehicule_id: int
     employe_id: Optional[int] = None
     service_id: Optional[int] = None
-    garage_id: Optional[int] = None
+    # garage_id n'existe pas dans la table rendez_vous - retiré
     date_rdv: datetime
     motif: Optional[str] = None
     statut: Optional[str] = "programme"

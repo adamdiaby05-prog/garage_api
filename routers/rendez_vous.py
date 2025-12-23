@@ -16,7 +16,7 @@ def get_rendez_vous(
     limit: int = Query(100, ge=1, le=100),
     client_id: Optional[int] = Query(None),
     employe_id: Optional[int] = Query(None),
-    garage_id: Optional[int] = Query(None),
+    # garage_id n'existe pas dans la table rendez_vous - filtre retiré
     date_rdv: Optional[date] = Query(None),
     statut: Optional[str] = Query(None),
     db: Session = Depends(get_db)
@@ -29,9 +29,6 @@ def get_rendez_vous(
     
     if employe_id:
         query = query.filter(RendezVous.employe_id == employe_id)
-    
-    if garage_id:
-        query = query.filter(RendezVous.garage_id == garage_id)
     
     if date_rdv:
         query = query.filter(
