@@ -87,8 +87,13 @@ def get_demandes_prestations(
         params['limit'] = limit
         params['skip'] = skip
         
+        print(f"🔍 Requête SQL: {base_query}")
+        print(f"🔍 Paramètres: {params}")
+        
         result = db.execute(text(base_query), params)
         rows = result.fetchall()
+        
+        print(f"✅ {len(rows)} demandes de prestations trouvées dans la base de données")
         
         # Construire les dictionnaires avec toutes les informations
         demandes = []
