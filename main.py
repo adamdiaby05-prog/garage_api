@@ -12,7 +12,8 @@ from routers import (
     employes,
     factures,
     rendez_vous,
-    garages
+    garages,
+    demandes_prestations
 )
 from routers import auth
 
@@ -56,6 +57,7 @@ app.include_router(employes.router)
 app.include_router(factures.router)
 app.include_router(rendez_vous.router)
 app.include_router(garages.router)
+app.include_router(demandes_prestations.router)
 
 
 @app.get("/")
