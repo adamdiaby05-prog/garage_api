@@ -2,9 +2,9 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 from typing import List, Optional
 from database import get_db
-from models import Vehicule, Client
+from models import Vehicule, Client, DemandePrestation
 from schemas import VehiculeCreate, VehiculeUpdate, Vehicule as VehiculeSchema
-from sqlalchemy import or_
+from sqlalchemy import or_, text
 
 router = APIRouter(prefix="/vehicules", tags=["vehicules"])
 
@@ -158,4 +158,77 @@ def delete_vehicule(vehicule_id: int, db: Session = Depends(get_db)):
     db.delete(db_vehicule)
     db.commit()
     return None
+
+
+@router.get("/garage/{garage_id}", response_model=List[VehiculeSchema])
+def get_vehicules_by_garage(
+    garage_id: int,
+    db: Session = Depends(get_db)
+):
+    """Récupère les véhicules d'un garage basés sur les demandes acceptées/en cours (pas terminées)"""
+    try:
+        # Récupérer les véhicules associés aux demandes acceptées/en cours du garage
+        query = text("""
+            SELECT DISTINCT 
+                v.id, 
+                v.client_id, 
+                v.marque, 
+                v.modele, 
+                v.immatriculation, 
+                v.annee, 
+                v.kilometrage, 
+                v.carburant, 
+                v.couleur, 
+                v.created_at,
+                c.nom as client_nom,
+                c.prenom as client_prenom,
+                c.telephone as client_telephone,
+                c.email as client_email
+            FROM vehicules v
+            INNER JOIN demandes_prestations dp ON v.id = dp.vehicule_id
+            INNER JOIN clients c ON v.client_id = c.id
+            WHERE dp.garage_id = :garage_id
+            AND dp.statut IN ('acceptee', 'en_cours')
+            ORDER BY dp.date_demande DESC
+        """)
+        
+        result = db.execute(query, {"garage_id": garage_id})
+        rows = result.fetchall()
+        
+        # Construire les objets Vehicule depuis les lignes
+        vehicules = []
+        for row in rows:
+            vehicule_data = {
+                "id": row[0],
+                "client_id": row[1],
+                "marque": row[2],
+                "modele": row[3],
+                "immatriculation": row[4],
+                "annee": row[5] if row[5] else None,
+                "kilometrage": row[6] if row[6] else 0,
+                "carburant": str(row[7]) if row[7] else 'essence',
+                "couleur": row[8] if row[8] else None,
+                "created_at": row[9] if row[9] else None,
+                # Ajouter les infos client pour le frontend
+                "client_nom": f"{row[10] or ''} {row[11] or ''}".strip() if row[10] or row[11] else None,
+                "client_telephone": row[12] if row[12] else None,
+                "client_email": row[13] if row[13] else None
+            }
+            vehicule = Vehicule(**{k: v for k, v in vehicule_data.items() if k not in ['client_nom', 'client_telephone', 'client_email']})
+            # Ajouter les attributs client comme attributs dynamiques
+            vehicule.client_nom = vehicule_data['client_nom']
+            vehicule.client_telephone = vehicule_data['client_telephone']
+            vehicule.client_email = vehicule_data['client_email']
+            vehicules.append(vehicule)
+        
+        return vehicules
+    except Exception as e:
+        import traceback
+        error_str = str(e)
+        print(f"Erreur lors de la récupération des véhicules du garage: {error_str}")
+        traceback.print_exc()
+        raise HTTPException(
+            status_code=500,
+            detail=f"Erreur lors de la récupération des véhicules du garage: {error_str}"
+        )
 
