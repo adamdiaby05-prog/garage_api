@@ -51,6 +51,17 @@ class UserResponse(BaseModel):
 
 
 # Fonctions utilitaires
+def get_user_full_name(user) -> str:
+    """Construit le nom complet depuis nom_complet ou nom+prenom"""
+    if hasattr(user, 'nom_complet') and user.nom_complet:
+        return user.nom_complet
+    nom_parts = []
+    if hasattr(user, 'prenom') and user.prenom:
+        nom_parts.append(user.prenom)
+    if hasattr(user, 'nom') and user.nom:
+        nom_parts.append(user.nom)
+    return ' '.join(nom_parts) if nom_parts else (user.email if hasattr(user, 'email') else '')
+
 def verify_password(plain_password: str, hashed_password: str) -> bool:
     """Vérifie un mot de passe"""
     try:
@@ -178,13 +189,25 @@ def register(user_data: UserRegister, db: Session = Depends(get_db)):
     nom = nom_parts[0]
     prenom = nom_parts[1] if len(nom_parts) > 1 else None
     
+    # Adapter selon la structure de la base de données
+    # Si la base utilise nom/prenom, les utiliser, sinon utiliser nom_complet
     new_user = Utilisateur(
-        nom_complet=user_data.nom_complet,
         email=user_data.email,
         password_hash=hashed_password,
+        mot_de_passe=hashed_password,  # Pour compatibilité avec l'ancienne structure
         role=RoleEnum(user_data.role),
         telephone=user_data.telephone
     )
+    
+    # Essayer d'abord nom_complet, sinon utiliser nom+prenom
+    try:
+        new_user.nom_complet = user_data.nom_complet
+    except:
+        pass
+    
+    # Toujours définir nom et prenom pour compatibilité
+    new_user.nom = nom
+    new_user.prenom = prenom
     
     db.add(new_user)
     db.commit()
@@ -199,13 +222,13 @@ def register(user_data: UserRegister, db: Session = Depends(get_db)):
             client_id = existing_client.id
         else:
             # Créer un nouveau client
-            nom_parts = new_user.nom_complet.split(" ", 1)
-            nom = nom_parts[0]
-            prenom = nom_parts[1] if len(nom_parts) > 1 else None
+            # Utiliser nom/prenom du new_user ou construire depuis nom_complet
+            client_nom = new_user.nom or (nom_parts[0] if nom_parts else '')
+            client_prenom = new_user.prenom or (nom_parts[1] if len(nom_parts) > 1 else None)
             
             new_client = Client(
-                nom=nom,
-                prenom=prenom,
+                nom=client_nom,
+                prenom=client_prenom,
                 email=new_user.email,
                 telephone=new_user.telephone or "0000000000"  # Téléphone obligatoire dans Client
             )
@@ -223,7 +246,7 @@ def register(user_data: UserRegister, db: Session = Depends(get_db)):
     
     return UserResponse(
         id=new_user.id,
-        nom_complet=new_user.nom_complet,
+        nom_complet=get_user_full_name(new_user),
         email=new_user.email,
         role=new_user.role.value,
         telephone=new_user.telephone,
@@ -244,8 +267,9 @@ def login(login_data: UserLogin, db: Session = Depends(get_db)):
                 detail="Email ou mot de passe incorrect"
             )
         
-        # Vérifier le mot de passe
-        if not user.password_hash:
+        # Vérifier le mot de passe (support des deux noms de colonnes)
+        password_hash = user.password_hash or getattr(user, 'mot_de_passe', None)
+        if not password_hash:
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                 detail="Erreur de configuration du compte utilisateur"
@@ -253,7 +277,7 @@ def login(login_data: UserLogin, db: Session = Depends(get_db)):
         
         # Vérifier si le hash est un hash bcrypt valide
         try:
-            password_valid = verify_password(login_data.password, user.password_hash)
+            password_valid = verify_password(login_data.password, password_hash)
         except Exception as e:
             error_str = str(e)
             print(f"Erreur lors de la vérification du mot de passe: {error_str}")
@@ -322,7 +346,7 @@ def login(login_data: UserLogin, db: Session = Depends(get_db)):
         
         return UserResponse(
             id=user.id,
-            nom_complet=user.nom_complet,
+            nom_complet=get_user_full_name(user),
             email=user.email,
             role=user.role.value,
             telephone=user.telephone,
@@ -451,7 +475,7 @@ def update_user_garage_id(
     
     return UserResponse(
         id=user.id,
-        nom_complet=user.nom_complet,
+        nom_complet=get_user_full_name(user),
         email=user.email,
         role=user.role.value,
         telephone=user.telephone,

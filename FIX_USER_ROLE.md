@@ -81,3 +81,5 @@ AND id NOT IN (
 2. Déconnectez-vous et reconnectez-vous sur les deux plateformes
 3. Vérifiez que le rôle est maintenant cohérent
 
+
+

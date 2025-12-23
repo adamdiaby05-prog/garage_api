@@ -30,3 +30,5 @@ ENV PYTHONUNBUFFERED=1
 # Commande pour démarrer l'application
 CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]
 
+
+

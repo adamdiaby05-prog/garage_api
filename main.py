@@ -1,5 +1,6 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from sqlalchemy import text
 from config import settings
 from database import engine, Base
 from routers import (
@@ -70,11 +71,30 @@ def root():
 
 @app.get("/health")
 def health_check():
-    """Vérification de l'état de l'API"""
-    return {
-        "status": "healthy",
-        "database": "connected"
-    }
+    """Vérification de l'état de l'API et de la base de données"""
+    from database import engine
+    from config import settings
+    
+    try:
+        # Tester la connexion à la base de données
+        with engine.connect() as connection:
+            connection.execute(text("SELECT 1"))
+        
+        return {
+            "status": "healthy",
+            "database": "connected",
+            "db_host": settings.DB_HOST,
+            "db_name": settings.DB_NAME,
+            "api_version": "1.0.0"
+        }
+    except Exception as e:
+        return {
+            "status": "unhealthy",
+            "database": "disconnected",
+            "error": str(e),
+            "db_host": settings.DB_HOST,
+            "db_name": settings.DB_NAME
+        }
 
 
 if __name__ == "__main__":
