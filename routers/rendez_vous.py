@@ -1,27 +1,63 @@
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 from sqlalchemy import func
-from typing import List, Optional
+from typing import List, Optional, Union
 from datetime import datetime, date
 from database import get_db
-from models import RendezVous, Client, Vehicule, Employe, Service
+from models import RendezVous, Client, Vehicule, Employe, Service, DemandePrestation
 from schemas import RendezVousCreate, RendezVousUpdate, RendezVous as RendezVousSchema
 
 router = APIRouter(prefix="/rendez-vous", tags=["rendez-vous"])
 
 
-@router.get("/", response_model=List[RendezVousSchema])
+@router.get("/")
 def get_rendez_vous(
     skip: int = Query(0, ge=0),
     limit: int = Query(100, ge=1, le=100),
     client_id: Optional[int] = Query(None),
     employe_id: Optional[int] = Query(None),
-    # garage_id n'existe pas dans la table rendez_vous - filtre retiré
+    garage_id: Optional[int] = Query(None),
     date_rdv: Optional[date] = Query(None),
     statut: Optional[str] = Query(None),
     db: Session = Depends(get_db)
 ):
-    """Récupère la liste des rendez-vous avec pagination et filtres"""
+    """Récupère la liste des rendez-vous ou demandes de prestations avec pagination et filtres"""
+    # Si garage_id est fourni, retourner les demandes de prestations au lieu des rendez-vous
+    if garage_id:
+        query = db.query(DemandePrestation).filter(DemandePrestation.garage_id == garage_id)
+        
+        if client_id:
+            query = query.filter(DemandePrestation.client_id == client_id)
+        
+        if statut:
+            query = query.filter(DemandePrestation.statut == statut)
+        
+        if date_rdv:
+            query = query.filter(
+                func.date(DemandePrestation.date_souhaitee) == date_rdv
+            )
+        
+        demandes = query.order_by(DemandePrestation.date_demande.desc()).offset(skip).limit(limit).all()
+        
+        # Convertir les demandes en format compatible avec RendezVous pour le mobile
+        result = []
+        for demande in demandes:
+            result.append({
+                "id": demande.id,
+                "client_id": demande.client_id,
+                "vehicule_id": demande.vehicule_id,
+                "service_id": demande.service_id,
+                "employe_id": None,
+                "date_rdv": demande.date_souhaitee or demande.date_demande,
+                "motif": demande.description_probleme,
+                "statut": demande.statut,
+                "notes": demande.description_probleme,
+                "duree_estimee": demande.duree_estimee or 60,
+                "created_at": demande.created_at
+            })
+        return result
+    
+    # Sinon, retourner les rendez-vous normaux
     query = db.query(RendezVous)
     
     if client_id:

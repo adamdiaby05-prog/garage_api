@@ -238,6 +238,30 @@ class RendezVous(Base):
     service = relationship("Service", back_populates="rendez_vous")
 
 
+class DemandePrestation(Base):
+    __tablename__ = "demandes_prestations"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    client_id = Column(Integer, ForeignKey("clients.id"), nullable=False)
+    vehicule_id = Column(Integer, ForeignKey("vehicules.id"), nullable=False)
+    service_id = Column(Integer, ForeignKey("services.id"), nullable=False)
+    garage_id = Column(Integer, ForeignKey("garages.id"), nullable=True)
+    date_demande = Column(DateTime, nullable=False)
+    date_souhaitee = Column(DateTime, nullable=True)
+    description_probleme = Column(Text, nullable=True)
+    statut = Column(String(50), default="en_attente")
+    prix_estime = Column(DECIMAL(10, 2), nullable=True)
+    duree_estimee = Column(Integer, nullable=True)
+    created_at = Column(DateTime, server_default=func.now())
+    updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
+    
+    # Relations
+    client = relationship("Client")
+    vehicule = relationship("Vehicule")
+    service = relationship("Service")
+    garage = relationship("Garage")
+
+
 class Garage(Base):
     __tablename__ = "garages"
     
