@@ -122,9 +122,23 @@ def create_access_token(data: dict, expires_delta: Optional[timedelta] = None):
 
 
 def get_user_by_email(db: Session, email: str):
-    """Récupère un utilisateur par email"""
+    """Récupère un utilisateur par email (le plus récent en cas de doublons)"""
     try:
-        return db.query(Utilisateur).filter(Utilisateur.email == email).first()
+        # Récupérer tous les utilisateurs avec cet email (en cas de doublons)
+        users = db.query(Utilisateur).filter(Utilisateur.email == email).order_by(Utilisateur.id.desc()).all()
+        
+        if not users:
+            return None
+        
+        # Si plusieurs utilisateurs avec le même email, utiliser le plus récent (ID le plus élevé)
+        if len(users) > 1:
+            print(f"⚠️  ATTENTION: {len(users)} utilisateurs trouvés avec l'email '{email}'. Utilisation du plus récent (ID: {users[0].id})")
+            # Optionnel: vous pouvez supprimer les anciens doublons ici
+            # for old_user in users[1:]:
+            #     db.delete(old_user)
+            # db.commit()
+        
+        return users[0]
     except Exception as e:
         error_str = str(e)
         print(f"Erreur lors de la récupération de l'utilisateur: {error_str}")
@@ -269,6 +283,35 @@ def login(login_data: UserLogin, db: Session = Depends(get_db)):
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                 detail="Rôle utilisateur non défini"
             )
+        
+        # IMPORTANT: Vérifier d'abord si un garage existe avec cet email
+        # Si oui, l'utilisateur DOIT être un garage, peu importe son rôle dans la base
+        from models import Garage
+        garage = db.query(Garage).filter(Garage.email == user.email).first()
+        
+        if garage:
+            # Un garage existe avec cet email, l'utilisateur DOIT être un garage
+            if user.role != RoleEnum.garage or user.garage_id != garage.id:
+                print(f"⚠️  Garage trouvé pour {user.email} (ID: {garage.id})")
+                print(f"   Correction: rôle={user.role.value} → 'garage', garage_id={user.garage_id} → {garage.id}")
+                user.role = RoleEnum.garage
+                user.garage_id = garage.id
+                db.commit()
+                db.refresh(user)
+        else:
+            # Pas de garage avec cet email
+            # Cohérence rôle/garage_id : si l'utilisateur a un garage_id, son rôle doit être "garage"
+            if user.garage_id and user.role != RoleEnum.garage:
+                print(f"⚠️  Incohérence détectée: utilisateur {user.email} a garage_id={user.garage_id} mais rôle={user.role.value}")
+                print(f"   Correction automatique: rôle changé en 'garage'")
+                user.role = RoleEnum.garage
+                db.commit()
+                db.refresh(user)
+            
+            # Si l'utilisateur est un garage mais n'a pas de garage_id, c'est une incohérence
+            if user.role == RoleEnum.garage and not user.garage_id:
+                print(f"⚠️  ATTENTION: Utilisateur {user.email} a le rôle 'garage' mais pas de garage_id et aucun garage trouvé avec cet email")
+                print(f"   Le rôle sera retourné tel quel, mais l'utilisateur n'a pas de garage associé")
         
         # Créer un token
         access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
@@ -435,6 +478,24 @@ def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(
     user = db.query(Utilisateur).filter(Utilisateur.id == int(user_id)).first()
     if user is None:
         raise credentials_exception
+    
+    # Appliquer la même logique de cohérence que dans login
+    from models import Garage
+    garage = db.query(Garage).filter(Garage.email == user.email).first()
+    
+    if garage:
+        # Un garage existe avec cet email, l'utilisateur DOIT être un garage
+        if user.role != RoleEnum.garage or user.garage_id != garage.id:
+            user.role = RoleEnum.garage
+            user.garage_id = garage.id
+            db.commit()
+            db.refresh(user)
+    else:
+        # Cohérence rôle/garage_id
+        if user.garage_id and user.role != RoleEnum.garage:
+            user.role = RoleEnum.garage
+            db.commit()
+            db.refresh(user)
     
     return UserResponse(
         id=user.id,
