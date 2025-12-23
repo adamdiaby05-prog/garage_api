@@ -160,7 +160,7 @@ def delete_vehicule(vehicule_id: int, db: Session = Depends(get_db)):
     return None
 
 
-@router.get("/garage/{garage_id}", response_model=List[VehiculeSchema])
+@router.get("/garage/{garage_id}")
 def get_vehicules_by_garage(
     garage_id: int,
     db: Session = Depends(get_db)
@@ -195,7 +195,7 @@ def get_vehicules_by_garage(
         result = db.execute(query, {"garage_id": garage_id})
         rows = result.fetchall()
         
-        # Construire les objets Vehicule depuis les lignes
+        # Construire les dictionnaires avec toutes les informations
         vehicules = []
         for row in rows:
             vehicule_data = {
@@ -208,18 +208,13 @@ def get_vehicules_by_garage(
                 "kilometrage": row[6] if row[6] else 0,
                 "carburant": str(row[7]) if row[7] else 'essence',
                 "couleur": row[8] if row[8] else None,
-                "created_at": row[9] if row[9] else None,
+                "created_at": str(row[9]) if row[9] else None,
                 # Ajouter les infos client pour le frontend
                 "client_nom": f"{row[10] or ''} {row[11] or ''}".strip() if row[10] or row[11] else None,
                 "client_telephone": row[12] if row[12] else None,
                 "client_email": row[13] if row[13] else None
             }
-            vehicule = Vehicule(**{k: v for k, v in vehicule_data.items() if k not in ['client_nom', 'client_telephone', 'client_email']})
-            # Ajouter les attributs client comme attributs dynamiques
-            vehicule.client_nom = vehicule_data['client_nom']
-            vehicule.client_telephone = vehicule_data['client_telephone']
-            vehicule.client_email = vehicule_data['client_email']
-            vehicules.append(vehicule)
+            vehicules.append(vehicule_data)
         
         return vehicules
     except Exception as e:
