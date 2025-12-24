@@ -13,7 +13,8 @@ from routers import (
     factures,
     rendez_vous,
     garages,
-    demandes_prestations
+    demandes_prestations,
+    admin
 )
 from routers import auth
 
@@ -58,6 +59,7 @@ app.include_router(factures.router)
 app.include_router(rendez_vous.router)
 app.include_router(garages.router)
 app.include_router(demandes_prestations.router)
+app.include_router(admin.router)
 
 
 @app.get("/")
