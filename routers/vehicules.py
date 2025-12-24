@@ -88,26 +88,44 @@ def get_vehicule(vehicule_id: int, db: Session = Depends(get_db)):
 @router.post("/", response_model=VehiculeSchema, status_code=201)
 def create_vehicule(vehicule: VehiculeCreate, db: Session = Depends(get_db)):
     """Crée un nouveau véhicule"""
-    # Vérifier que le client existe
-    client = db.query(Client).filter(Client.id == vehicule.client_id).first()
-    if not client:
-        raise HTTPException(status_code=404, detail="Client non trouvé")
-    
-    # Vérifier que l'immatriculation n'existe pas déjà
-    existing = db.query(Vehicule).filter(
-        Vehicule.immatriculation == vehicule.immatriculation
-    ).first()
-    if existing:
+    try:
+        # Vérifier que le client existe
+        client = db.query(Client).filter(Client.id == vehicule.client_id).first()
+        if not client:
+            raise HTTPException(status_code=404, detail="Client non trouvé")
+        
+        # Vérifier que l'immatriculation n'existe pas déjà
+        existing = db.query(Vehicule).filter(
+            Vehicule.immatriculation == vehicule.immatriculation
+        ).first()
+        if existing:
+            raise HTTPException(
+                status_code=400,
+                detail="Un véhicule avec cette immatriculation existe déjà"
+            )
+        
+        # Créer le dictionnaire sans photo_url car la colonne n'existe peut-être pas
+        vehicule_dict = vehicule.dict()
+        # Retirer photo_url si présent car la colonne n'existe pas dans la base
+        vehicule_dict.pop('photo_url', None)
+        
+        db_vehicule = Vehicule(**vehicule_dict)
+        db.add(db_vehicule)
+        db.commit()
+        db.refresh(db_vehicule)
+        return db_vehicule
+    except HTTPException:
+        raise
+    except Exception as e:
+        db.rollback()
+        import traceback
+        error_str = str(e)
+        print(f"Erreur lors de la création du véhicule: {error_str}")
+        traceback.print_exc()
         raise HTTPException(
-            status_code=400,
-            detail="Un véhicule avec cette immatriculation existe déjà"
+            status_code=500,
+            detail=f"Erreur lors de la création du véhicule: {error_str}"
         )
-    
-    db_vehicule = Vehicule(**vehicule.dict())
-    db.add(db_vehicule)
-    db.commit()
-    db.refresh(db_vehicule)
-    return db_vehicule
 
 
 @router.put("/{vehicule_id}", response_model=VehiculeSchema)

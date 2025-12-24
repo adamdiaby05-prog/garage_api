@@ -82,7 +82,8 @@ class VehiculeBase(BaseModel):
     kilometrage: Optional[int] = 0
     carburant: Optional[str] = "essence"
     couleur: Optional[str] = Field(None, max_length=30)
-    photo_url: Optional[str] = None
+    # photo_url retiré car la colonne n'existe pas dans la base de données
+    # photo_url: Optional[str] = None
 
 
 class VehiculeCreate(VehiculeBase):
