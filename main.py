@@ -19,15 +19,23 @@ from routers import (
 from routers import auth
 
 # Créer les tables si elles n'existent pas
-from database import Base
+from database import Base, test_connection
 try:
     from models_auth import Utilisateur
-    print("Création/vérification des tables de la base de données...")
-    Base.metadata.create_all(bind=engine)
-    print("Tables créées/vérifiées avec succès")
+    print("🔄 Création/vérification des tables de la base de données...")
+    
+    # Tester la connexion avant de créer les tables
+    if test_connection():
+        Base.metadata.create_all(bind=engine)
+        print("✅ Tables créées/vérifiées avec succès")
+    else:
+        print("⚠️  Impossible de se connecter à la base de données")
+        print("   Les tables ne seront pas créées automatiquement")
+        print("   Vérifiez les variables d'environnement dans Dokploy")
 except Exception as e:
-    print(f"Attention: Erreur lors de la création des tables: {e}")
-    print("Assurez-vous que la base de données est accessible et que les tables existent")
+    print(f"❌ Erreur lors de la création des tables: {e}")
+    print("   Assurez-vous que la base de données est accessible et que les tables existent")
+    print("   Vérifiez les logs pour plus de détails")
 
 # Créer l'application FastAPI
 app = FastAPI(
