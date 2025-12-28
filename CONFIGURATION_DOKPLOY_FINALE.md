@@ -180,3 +180,4 @@ Si vous rencontrez toujours des problèmes après avoir suivi ce guide :
 3. Testez la connexion manuellement avec les credentials
 4. Vérifiez que le port 8000 est correctement configuré dans Dokploy
 
+

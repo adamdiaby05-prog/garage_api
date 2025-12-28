@@ -258,6 +258,9 @@ class DemandePrestation(Base):
     statut = Column(String(50), default="en_attente")
     prix_estime = Column(DECIMAL(10, 2), nullable=True)
     duree_estimee = Column(Integer, nullable=True)
+    # Localisation du client
+    client_latitude = Column(DECIMAL(10, 8), nullable=True)
+    client_longitude = Column(DECIMAL(11, 8), nullable=True)
     created_at = Column(DateTime, server_default=func.now())
     updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
     
@@ -281,6 +284,9 @@ class Garage(Base):
     siret = Column(String(14), nullable=True)
     specialites = Column(Text, nullable=True)
     statut = Column(Enum(StatutGarageEnum), default=StatutGarageEnum.en_attente)
+    # Localisation du garage
+    latitude = Column(DECIMAL(10, 8), nullable=True)
+    longitude = Column(DECIMAL(11, 8), nullable=True)
     created_at = Column(DateTime, server_default=func.now())
     updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
 

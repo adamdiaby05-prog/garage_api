@@ -71,3 +71,4 @@ if __name__ == "__main__":
         print("\n❌ Impossible de créer la base de données")
         sys.exit(1)
 
+
